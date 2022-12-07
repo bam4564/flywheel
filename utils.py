@@ -25,6 +25,9 @@ from IPython.display import HTML, display
 
 def ddf(df):
     display(HTML(df.to_html()))
+
+def first_row(df): 
+    ddf(df.head(1))
     
 def remove_prefix(df: pd.DataFrame, prefix: str):
     # Remove a prefix from all columns 
