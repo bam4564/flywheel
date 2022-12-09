@@ -1,0 +1,12 @@
+pandas 
+numpy 
+subgrounds 
+palettable
+web3
+gql
+etherscan-python
+pycoingecko
+altair 
+missingno
+prefect 
+ipykernel
