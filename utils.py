@@ -2,7 +2,7 @@
 import asyncio 
 import re 
 
-from collections import deque 
+from collections import deque, namedtuple 
 from itertools import chain, product 
 
 from typing import List 
@@ -42,6 +42,19 @@ def remove_prefixes(df: pd.DataFrame, prefixes: List[str]):
     for p in prefixes: 
         df = remove_prefix(df, p)
     return df 
+
+def compare_sets(a, b): 
+    SetDiff = namedtuple('SetDiff', 'intersection left right')
+    a = set(a) 
+    b = set(b) 
+    i = a.intersection(b)
+    l = a.difference(b)
+    r = b.difference(a)
+    return SetDiff(i, l, r) 
+
+
+def compare_cols(dfa, dfb): 
+    return compare_sets(dfa.columns, dfb.columns)
 
 def zip_dfs(dfs, col_names): 
     data = dfs[0]
