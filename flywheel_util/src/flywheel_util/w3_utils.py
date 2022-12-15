@@ -8,9 +8,15 @@ hmmmm = 'VR7YA9DRDB4Y15B5N3WU9E7PSJ9RWPCP5S'
 etherscan = Etherscan(hmmmm)
 
 
-def verified_contract(address): 
+def get_verified_abi(address): 
     address = Web3.toChecksumAddress(address) 
     abi = etherscan.get_contract_abi(address) 
+    return abi 
+
+
+def verified_contract(address): 
+    address = Web3.toChecksumAddress(address) 
+    abi = get_verified_abi(address)
     contract = w3.eth.contract(address, abi=abi)
     return contract 
 

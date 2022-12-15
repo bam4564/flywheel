@@ -23,6 +23,9 @@ from subgrounds.pagination import ShallowStrategy
 from IPython.display import HTML, display
 
 
+
+
+
 def ddf(df):
     display(HTML(df.to_html()))
 
@@ -141,6 +144,11 @@ async def graphql_execute(
             
             async def _request(page_num):
                 # Requests the page_num-th page of data 
+                print({
+                    **variable_values, 
+                    page_offset_variable: page_size * page_num, 
+                    page_size_variable: page_size
+                })
                 res = await session.execute(
                     gquery, variable_values={
                         **variable_values, 
@@ -150,6 +158,7 @@ async def graphql_execute(
                 )
                 records = res[query_name]
                 if verbose: 
+                    print(gquery.definitions)
                     print(f"-- Page {page_num} returned {len(records)} records with page size {page_size}.")
                 return records
             
