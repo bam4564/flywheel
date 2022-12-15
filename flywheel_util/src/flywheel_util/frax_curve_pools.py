@@ -172,18 +172,17 @@ def query_metapool_asset_ecosystem_volume(cg, token_addr_map):
 def compute_pool_dfs(df_pools, df_pool_snaps):
     join_cols = ['pool_address', 'pool_coin_address']
     col_diff = compare_cols(df_pools, df_pool_snaps)
-    assert col_diff.left == {'pool_cvx_token', 'pool_gauge'}
-    assert col_diff.right == {
-        'pool_coin_name', 'reserves_coin_price_usd', 'reserves', 'lp_price_usd', 'pool_coin_decimals', 'tvl'
-    }
-    assert col_diff.intersection.difference(join_cols) == set(['pool_lp_token', 'pool_symbol', 'pool_name', 'pool_type'])
+    cols_shared = col_diff.intersection
+    # Thought both dataframes share these columns, they have different values as they come from different subgraphs. 
+    # Thus, we don't include these as join columns because it would cause failure. 
+    assert cols_shared.difference(join_cols) == set(['pool_lp_token', 'pool_symbol', 'pool_name', 'pool_type'])
     assert not set(
         df_pools.pool_address.unique()).difference(df_pool_snaps.pool_address.unique()
     )
     # We join gauge specifc onto our filtered pool snapshots (one row per pool coin combination) 
     df_pool_coins = (
-        # one row per combination of pool address and coin address 
-        df_pool_snaps.drop_duplicates(subset=join_cols)
+        df_pool_snaps
+        .drop_duplicates(subset=join_cols)
         .merge(df_pools[join_cols + ['pool_gauge', 'pool_cvx_token']], how='left', on=join_cols)
     )
     df_pool_coins['pool_fraxbp_metapool'] = df_pool_coins.pool_address.apply(lambda a: a != addresses.contract.fraxbp)
