@@ -55,7 +55,6 @@ def compare_sets(a, b):
     r = b.difference(a)
     return SetDiff(i, l, r) 
 
-
 def compare_cols(dfa, dfb): 
     return compare_sets(dfa.columns, dfb.columns)
 
@@ -144,11 +143,6 @@ async def graphql_execute(
             
             async def _request(page_num):
                 # Requests the page_num-th page of data 
-                print({
-                    **variable_values, 
-                    page_offset_variable: page_size * page_num, 
-                    page_size_variable: page_size
-                })
                 res = await session.execute(
                     gquery, variable_values={
                         **variable_values, 
@@ -158,7 +152,6 @@ async def graphql_execute(
                 )
                 records = res[query_name]
                 if verbose: 
-                    print(gquery.definitions)
                     print(f"-- Page {page_num} returned {len(records)} records with page size {page_size}.")
                 return records
             
@@ -189,6 +182,7 @@ async def graphql_execute(
                 results.extend(list_records) 
                 i = page_end + 1 
             return list(chain(*results))
+
 
 def cg_get_market_history(
     cg, 
@@ -237,7 +231,6 @@ def cg_get_market_history(
     df = df.drop(columns='rank')
             
     return df 
-
 
 def df_sort_cols(df, prefix_groups):
     # Ensure there are no columns that begin with two separate prefixes specified by user 

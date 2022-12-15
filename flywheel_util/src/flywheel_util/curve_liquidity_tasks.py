@@ -16,8 +16,6 @@ from .utils import (
     df_cols_change_prefix, 
     df_sort_cols, 
     remove_prefix, 
-    remove_prefix, 
-    remove_prefixes, 
     recursive_index_merge, 
     zip_dfs, 
     query_attrs, 
@@ -159,122 +157,53 @@ def query_curve_pool_vol_snapshots():
     df = df.rename(columns={'pool_id': 'pool_address'}).drop(columns="snap_timestamp")
     return df
 
-@task(persist_result=True, cache_key_fn=lambda *args: 'metapool_asset_eco_vol8') 
-def query_metapool_asset_ecosystem_volume(cg, token_addr_map): 
+@task(persist_result=True, cache_key_fn=lambda *args: 'metapool_asset_eco_vol9') 
+def query_metapool_paired_asset_global_volume(cg, token_addr_map): 
     # Get ecosystem wide (eth + other chains) volume for assets paired against crvFRAX in metapools 
     return (
         cg_get_market_history(cg, token_addr_map, include_price=False, include_market_cap=False)
-        .rename(columns={'token_name': 'pool_coin_name', 'total_volumes': 'mpool_asset_eco_tvl_usd'})
+        .rename(columns={'token_name': 'pool_coin_name', 'total_volumes': 'mpool_paired_asset_vol_usd'})
         .drop(columns="timestamp")
     ) 
 
 @task 
-def compute_pool_dfs(df_pools, df_pool_snaps):
-    join_cols = ['pool_address', 'pool_coin_address']
-    col_diff = compare_cols(df_pools, df_pool_snaps)
-    assert col_diff.left == {'pool_cvx_token', 'pool_gauge'}
-    assert col_diff.right == {
-        'pool_coin_name', 'reserves_coin_price_usd', 'reserves', 'lp_price_usd', 'pool_coin_decimals', 'tvl'
-    }
-    assert col_diff.intersection.difference(join_cols) == set(['pool_lp_token', 'pool_symbol', 'pool_name', 'pool_type'])
-    assert not set(
-        df_pools.pool_address.unique()).difference(df_pool_snaps.pool_address.unique()
+def compute_pool_dfs(df_mpools_gauge, df_pool_snaps):
+    # One row per combination of pool and coin within that pool. 
+    df_coins = (
+        df_pool_snaps[['pool_address', 'pool_coin_address']]
+        .drop_duplicates()
+        .merge(
+            df_pool_snaps[['pool_address', 'pool_coin_name', 'pool_coin_address', 'pool_coin_decimals']], 
+            how='left', 
+            on=['pool_address', 'pool_coin_address'], 
+            validate="1:m"
+        )
+        .drop_duplicates()
+        .reset_index(drop=True)
+    ) 
+    # One row per pool 
+    df_pools = (
+        df_pool_snaps[['pool_address', 'pool_lp_token', 'pool_symbol', 'pool_name', 'pool_type']]
+        .drop_duplicates()
+        .merge(
+            df_mpools_gauge[['pool_address', 'pool_cvx_token', 'pool_gauge']].drop_duplicates(), 
+            how='left', 
+            on="pool_address", 
+            validate="1:1"
+        )
+        .reset_index(drop=True)
     )
-    # We join gauge specifc onto our filtered pool snapshots (one row per pool coin combination) 
-    df_pool_coins = (
-        # one row per combination of pool address and coin address 
-        df_pool_snaps.drop_duplicates(subset=join_cols)
-        .merge(df_pools[join_cols + ['pool_gauge', 'pool_cvx_token']], how='left', on=join_cols)
-    )
-    df_pool_coins['pool_fraxbp_metapool'] = df_pool_coins.pool_address.apply(lambda a: a != addresses.contract.fraxbp)
-    df_pool_coins['pool_fraxbp'] = ~df_pool_coins.pool_fraxbp_metapool
-    coin_cols = [
-        'pool_coin_name',
-        'pool_coin_address',
-        'pool_coin_decimals',
-    ]
-    # Compute our finalized version of the pools an pool_coins tables 
-    df_pool_coins = df_pool_coins[[
-        'pool_address',
-        'pool_name',
-        'pool_symbol',
-        'pool_lp_token',
-        'pool_type',
-        *coin_cols, 
-        'pool_fraxbp_metapool',
-        'pool_fraxbp',
-        'pool_gauge',
-        'pool_cvx_token',
-    ]]
-    df_pools = df_pool_coins.drop(columns=coin_cols).drop_duplicates()
-    return (
-        df_pools.sort_values('pool_address').reset_index(drop=True), 
-        df_pool_coins.sort_values('pool_address').reset_index(drop=True),
-    )
+    df_pools['pool_fraxbp_metapool'] = df_pools.pool_address.apply(lambda a: a != addresses.contract.fraxbp)
+    df_pools['pool_fraxbp'] = ~df_pools.pool_fraxbp_metapool
+    # One row per combination of pool and coin within that pool 
+    df_pool_coin = df_pools.merge(df_coins, how='left', on="pool_address").reset_index(drop=True)
+    return [df.sort_values("pool_address").reset_index(drop=True) for df in (df_pools, df_coins, df_pool_coin)]
 
 @task 
-def compute_curve_pool_reserves(df_pool_snaps): 
-    # Converts pool snapshots (containing both pool level and pool-coin level metrics) into a dataframe 
-    # containing only the reserves for each pool 
-    df_reserves = df_pool_snaps[[
-        'date',
-        'pool_address',
-        'pool_coin_address',
-        'pool_coin_name',
-        'reserves',
-        'reserves_usd',
-        'reserves_coin_price_usd',
-    ]].drop_duplicates()
-    assert all(
-        len(gdf) == 1 for _, gdf in df_reserves.groupby(['date', 'pool_address', 'pool_coin_address'])
-    )
-    return df_reserves
-
-@task
-def join_curve_pool_vol(df_pool_snaps, df_pool_vol_snaps): 
-    # Join in daily volume data for each of the curve pools   
-    df = df_pool_snaps.merge(df_pool_vol_snaps, how='left', on=['pool_address', 'date'])
-    df.snap_volume_usd = df.snap_volume_usd.fillna(0)
-    return df 
-
-@task 
-def remove_inactive_pools(df): 
-    # Remove inactive pools
-    last_snapshot = df.groupby(["pool_address", "pool_name", "pool_coin_name"])['snapshot_reserves_usd'].last().reset_index()
-    inactive_pools = last_snapshot.loc[last_snapshot.snapshot_reserves_usd < 1]
-    if len(inactive_pools): 
-        inactive_pools = inactive_pools[['pool_address', 'pool_name']].drop_duplicates()
-        for p in inactive_pools.to_dict(orient="records"):
-            peak_tvl = df.loc[df.pool_address == p['pool_address']]['snapshot_reserves_usd'].max()
-            print(f"Removing data for inactive pool {p['pool_name']} with peak tvl {peak_tvl}.")
-    inactive_addrs = inactive_pools.pool_address.unique()
-    df = df.loc[~df.pool_address.isin(inactive_addrs)]
-    return df 
-
-@task 
-def process_pool_snaps(df): 
-    df = df.rename(columns={'tvl': 'snap_tvl_usd', 'lp_price_usd': 'snap_lp_price_usd', 'snap_volume_usd': 'snap_vol_usd'})
-    assert not ((df.snap_tvl_usd == 0) ^ (df.snap_lp_price_usd == 0)).any()
-    df['snap_lp_supply'] = (df.snap_tvl_usd / df.snap_lp_price_usd).fillna(0)    
-    df['snap_liq_util'] = df.snap_vol_usd / df.snap_tvl_usd
-    df.loc[df.snap_tvl_usd == 0, 'snap_liq_util'] = 0
-    df.snap_liq_util = df.snap_liq_util.replace({np.inf: 0}) # TODO: Is this necessary? 
-    assert not any(df.snap_liq_util.isna())
-    return df[[
-        "date", 
-        "pool_address", 
-        "snap_vol_usd",
-        "snap_tvl_usd",
-        "snap_liq_util",
-        "snap_lp_supply",
-        "snap_lp_price_usd",
-    ]]
-
-@task 
-def process_metapool_snaps(df_pools, df_pool_snaps, df_reserves): 
+def compute_metapool_snaps(df_pools, df_pool_snaps, df_reserves): 
     mpool_addrs = df_pools.loc[df_pools.pool_fraxbp_metapool == True].pool_address.unique()
     df_mpool_snaps = df_pool_snaps.loc[df_pool_snaps.pool_address.isin(mpool_addrs)]
-    # supply over crvFRAX in each metapool overtime 
+    # supply over crvFRAX in each metapool 
     df_mpool_supply_crvfrax = (
         df_reserves.loc[
             (df_reserves.pool_address != addresses.contract.fraxbp) & 
@@ -302,7 +231,7 @@ def process_metapool_snaps(df_pools, df_pool_snaps, df_reserves):
     return df_mpool_snaps 
 
 @task 
-def remove_inactive_pools(df_pools, df_pool_coins, df_pool_snaps, df_pool_vol_snaps):
+def remove_inactive_pools(df_pools, df_coins, df_pool_coin, df_pool_snaps, df_pool_vol_snaps):
     last_snapshot = (
         df_pool_snaps
         .groupby(["pool_address", "pool_name", "pool_coin_name"])
@@ -313,49 +242,9 @@ def remove_inactive_pools(df_pools, df_pool_coins, df_pool_snaps, df_pool_vol_sn
         remove_pools = inactive_pools.pool_name.unique().tolist()
         print(f"Removing pools {', '.join(remove_pools)}")
         df_pools = df_pools.loc[~df_pools.pool_address.isin(remove_pools)]
+        df_coins = df_coins.loc[~df_coins.pool_address.isin(remove_pools)]
         df_pool_snaps = df_pool_snaps.loc[~df_pool_snaps.pool_address.isin(remove_pools)]
-        df_pool_coins = df_pool_coins.loc[~df_pool_coins.pool_address.isin(remove_pools)]
+        df_pool_coin = df_pool_coin.loc[~df_pool_coin.pool_address.isin(remove_pools)]
         df_pool_vol_snaps = df_pool_vol_snaps.loc[~df_pool_vol_snaps.pool_address.isin(remove_pools)]
-    return df_pools, df_pool_coins, df_pool_snaps, df_pool_vol_snaps
+    return df_pools, df_pool_coin, df_pool_snaps, df_pool_vol_snaps
 
-@task
-def process_pool_data(df): 
-    """Get daily snapshots of tvl for all of the metapools. 
-    """
-    # Add in column for total supply of crvFRAX over time 
-    df = df.merge(
-        df.loc[df.pool_address == addresses.contract.fraxbp][['snapshot_timestamp', 'snapshot_lp_supply']]
-            .drop_duplicates() # must happen since there is one row per coin in pool 
-            .rename(columns={'snapshot_lp_supply': 'snapshot_crvFRAX_supply'}), 
-        how='left', 
-        on='snapshot_timestamp'
-    )
-    assert not df.snapshot_crvFRAX_supply.isna().any()
-    
-    # Compute / Process columns representing metrics measured in relation to fraxBP 
-    df_pool_bp_lp = (
-        df.loc[(df.pool_is_metapool == True) & (df.pool_coin_name == 'crvFRAX')]
-        [['pool_address', 'snapshot_timestamp', 'snapshot_reserves', 'pool_coin_decimals', 'snapshot_crvFRAX_supply']]
-    )
-    # number of lp tokens for base pool deposited in metapool 
-    df_pool_bp_lp['snapshot_bp_lp_metapool'] = df_pool_bp_lp.snapshot_reserves / 10**df_pool_bp_lp.pool_coin_decimals 
-    # fraction of number of lp tokens for base pool deposited in metapool to total supply of lp tokens in base pool 
-    df_pool_bp_lp['snapshot_bp_lp_metapool_share'] = df_pool_bp_lp.snapshot_bp_lp_metapool / df_pool_bp_lp.snapshot_crvFRAX_supply
-    # number of lp tokens for base pool desposited across all metapools 
-    df_pool_bp_lp['snapshot_bp_lp_all_metapools'] = df_pool_bp_lp.groupby('snapshot_timestamp')['snapshot_bp_lp_metapool'].transform("sum")
-    # fraction of number of lp tokens for base pool deposited in metapool to total number of lp tokens for base pool deposited across all metapools 
-    df_pool_bp_lp['snapshot_bp_lp_all_metapools_share'] = 0
-    mask = df_pool_bp_lp.snapshot_bp_lp_all_metapools != 0
-    df_pool_bp_lp.loc[mask, 'snapshot_bp_lp_all_metapools_share'] = (
-        df_pool_bp_lp.loc[mask, 'snapshot_bp_lp_metapool'] / df_pool_bp_lp.loc[mask, 'snapshot_bp_lp_all_metapools']
-    )
-    df = df.merge(
-        df_pool_bp_lp[[
-            'pool_address', 'snapshot_timestamp', 'snapshot_bp_lp_metapool', 'snapshot_bp_lp_metapool_share', 
-            'snapshot_bp_lp_all_metapools', 'snapshot_bp_lp_all_metapools_share'
-        ]], 
-        how='left', on=['pool_address', 'snapshot_timestamp']
-    )    
-    assert set(df.loc[df.snapshot_bp_lp_metapool.isna()].pool_address.unique()) == set([addresses.contract.fraxbp])
-            
-    return df_sort_cols(df, ['pool', 'snapshot']) 
