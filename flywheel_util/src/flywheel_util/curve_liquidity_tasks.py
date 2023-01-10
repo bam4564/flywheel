@@ -1,4 +1,5 @@
 from pprint import PrettyPrinter
+from datetime import timedelta
 
 from subgrounds import Subgrounds
 
@@ -31,7 +32,6 @@ ADDRESS_POOLS_IGNORE = [
     '0xd9f907f7F84CbB0Af85C7829922fd692339147f9'.lower(), # honestly not sure what the fuck is going on here 
 ]
 
-
 sg = Subgrounds()
 
 sg_curve_pools = sg.load_subgraph(url_subgraphs.convex.curve_pools) 
@@ -39,7 +39,7 @@ sg_curve_vol = sg.load_subgraph(url_subgraphs.convex.curve_vol_mainnet)
 sg_votium = sg.load_subgraph(url_subgraphs.votium.bribes) 
 
 
-@task(persist_result=True, cache_key_fn=lambda *args: 'pools9') 
+@task(persist_result=True, cache_key_fn=lambda *args: 'pools9', cache_expiration=timedelta(days=1)) 
 def query_curve_mpools_with_gauge(): 
     # Get pool data for all fraxbp metapools + fraxbp (one row per combination of pool and coin) 
     # ----------------------------------------------------------------------
@@ -77,7 +77,7 @@ def query_curve_mpools_with_gauge():
     df['pool_symbol'] = df['pool_name'].apply(lambda name: name.split(":")[-1].strip())
     return df
 
-@task(persist_result=True, cache_key_fn=lambda *args: 'pool_snaps_raw19') 
+@task(persist_result=True, cache_key_fn=lambda *args: 'pool_snaps_raw19', cache_expiration=timedelta(days=1)) 
 def query_curve_pool_snapshots(): 
     # Get curve pool historical data for all fraxbp metapools + fraxbp 
     # ----------------------------------------------------------------------
@@ -125,7 +125,7 @@ def query_curve_pool_snapshots():
     df = df.drop(columns=['timestamp', 'pool_id'])
     return df
 
-@task(persist_result=True, cache_key_fn=lambda *args: 'pool_snaps_vol_raw27') 
+@task(persist_result=True, cache_key_fn=lambda *args: 'pool_snaps_vol_raw27', cache_expiration=timedelta(days=1)) 
 def query_curve_pool_vol_snapshots(): 
     # Get pool volumne snapshots for all curve metapools + FraxBP 
     daily_period = 60 * 60 * 24 # get snapshots at a daily cadence 
@@ -157,7 +157,7 @@ def query_curve_pool_vol_snapshots():
     df = df.rename(columns={'pool_id': 'pool_address'}).drop(columns="snap_timestamp")
     return df
 
-@task(persist_result=True, cache_key_fn=lambda *args: 'metapool_asset_eco_vol9') 
+@task(persist_result=True, cache_key_fn=lambda *args: 'metapool_asset_eco_vol9', cache_expiration=timedelta(days=1)) 
 def query_metapool_paired_asset_global_volume(cg, token_addr_map): 
     # Get ecosystem wide (eth + other chains) volume for assets paired against crvFRAX in metapools 
     return (

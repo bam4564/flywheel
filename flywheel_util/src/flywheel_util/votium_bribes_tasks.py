@@ -2,6 +2,7 @@ import logging
 import concurrent 
 import re 
 import requests 
+from datetime import timedelta 
 
 from web3 import Web3
 
@@ -11,6 +12,7 @@ from prefect.tasks import task_input_hash
 
 import pandas as pd 
 import missingno as miss
+from pycoingecko import CoinGeckoAPI
 
 from flywheel_util.constants import (
     addresses, 
@@ -35,13 +37,15 @@ from flywheel_util.w3_utils import (
     verified_contract
 )
 
+cg = CoinGeckoAPI()
+
 sg = Subgrounds()
 sg_votium = sg.load_subgraph(url_subgraphs.votium.bribes) 
 
 w3 = Web3(Web3.HTTPProvider(url_infura))
 
 
-@task(persist_result=True, cache_key_fn=lambda *args: "snapshot_proposals4")
+@task(persist_result=True, cache_key_fn=lambda *args: "snapshot_proposals4", cache_expiration=timedelta(days=1))
 async def query_snapshot_proposals(): 
     """Get all snapshot proposals corresponding to convex gauge weight votes. 
     
@@ -104,7 +108,7 @@ async def query_snapshot_proposals():
     df_proposals = df_proposals.drop(columns=['index']) 
     return df_proposals 
     
-@task(persist_result=True, cache_key_fn=lambda context, pid: f"snapshot_proposal_votes1_{pid}", tags=['network_request'])
+@task(persist_result=True, cache_key_fn=lambda context, pid: f"snapshot_proposal_votes2_{pid}", cache_expiration=timedelta(days=1), tags=['network_request'])
 async def blocking_query_snapshot_votes_for_proposal(pid: str): 
     return await graphql_execute(
         url_snapshot, 
@@ -127,7 +131,8 @@ async def blocking_query_snapshot_votes_for_proposal(pid: str):
         ''', 
         paginate=True, 
         page_size=snapshot_api_max_records_per_request,
-        batch_size=snapshot_api_max_skip + snapshot_api_max_records_per_request, 
+        # Snapshot keeps changing api specs :( now they only allow 3 concurrent requests to be made to the API. 
+        batch_size=snapshot_api_max_records_per_request * 3, 
         variable_values={'pid': pid}, 
         verbose=True, 
     )
@@ -161,7 +166,7 @@ async def process_snapshot_votes(votes, verbose=True):
     df_votes = df_votes.rename(columns={'created': 'vote_created', 'vp': 'total_vp', 'id': 'vote_id'})
     return df_votes
 
-@task(persist_result=True, cache_key_fn=lambda *args: "gauge_results6")
+@task(persist_result=True, cache_key_fn=lambda *args: "gauge_results6", cache_expiration=timedelta(days=1))
 def query_gauge_info(): 
     # Most recent gauge information. We will map the name of all the current gauges to the names 
     # within the snapshot proposal, so we can determine which choices in the proposals correspond 
@@ -177,7 +182,7 @@ def query_gauge_info():
     ])
     return df_gauges 
 
-@task(persist_result=True, cache_key_fn=lambda *args: 'votium_epoches2')
+@task(persist_result=True, cache_key_fn=lambda *args: 'votium_epoches2', cache_expiration=timedelta(days=1))
 def query_votium_epoches(): 
     # Get all votium voting epochs. Once we have validated that this set of epochs matches our set of snapshot proposals, 
     # we need to merge this data with our snapshot proposal data. 
@@ -189,7 +194,7 @@ def query_votium_epoches():
     df_epoches['epoch_end_date'] = pd.to_datetime(df_epoches.epoch_deadline, unit="s").dt.date 
     return df_epoches 
 
-@task(persist_result=True, cache_key_fn=lambda *args: 'votium_bribes2')
+@task(persist_result=True, cache_key_fn=lambda *args: 'votium_bribes2', cache_expiration=timedelta(days=1))
 def query_votium_bribes(epoch_ids): 
     # https://github.com/convex-community/convex-subgraph/blob/main/subgraphs/votium/src/mapping.ts
     # Addresses associated with the frax protocol used for votium bribes 
@@ -209,7 +214,7 @@ def query_votium_bribes(epoch_ids):
     df_bribes = df_bribes.drop(columns=['bribe_id'])
     return df_bribes 
 
-@task(persist_result=True, cache_key_fn=lambda *args: 'bribe_asset_prices2')
+@task(persist_result=True, cache_key_fn=lambda *args: 'bribe_asset_prices2', cache_expiration=timedelta(days=1))
 def query_bribe_asset_prices():
     token_addr_map = {'frax': addresses.token.frax, 'fxs': addresses.token.fxs}
     df_prices = cg_get_market_history(cg, token_addr_map, include_volume=False, include_market_cap=False)
@@ -221,7 +226,7 @@ def query_bribe_asset_prices():
     )
     return df_prices 
 
-@task(persist_result=True, cache_key_fn=lambda *args: "votium_reclaims2") 
+@task(persist_result=True, cache_key_fn=lambda *args: "votium_reclaims2", cache_expiration=timedelta(days=1)) 
 def query_votium_claims():
     # Query claim events from the votium multi-merkle stash 
     address_votium_multi_merkle_stash = '0x378ba9b73309be80bf4c2c027aad799766a7ed5a'

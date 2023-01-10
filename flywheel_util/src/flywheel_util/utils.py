@@ -117,15 +117,17 @@ async def graphql_execute(
     page_size_variable='page_size', 
     page_offset_variable='page_offset',
     verbose=False, 
-    batch_size=10000, 
+    batch_size=3000, 
     poll_secs=2, 
+    query_name=None, 
 ):
     # Batch size must be a multiple of page size 
     assert batch_size % page_size == 0
     variable_values = variable_values or {}
     transport = AIOHTTPTransport(url=url)
     gquery = gql(query)
-    query_name = gquery.to_dict()['definitions'][0]['name']['value'].lower()
+    if query_name is None: 
+        query_name = gquery.to_dict()['definitions'][0]['name']['value'].lower()
     # Using `async with` on the client will start a connection on the transport
     # and provide a `session` variable to execute queries on this connection
     async with Client(transport=transport, fetch_schema_from_transport=True) as session:
@@ -182,7 +184,6 @@ async def graphql_execute(
                 results.extend(list_records) 
                 i = page_end + 1 
             return list(chain(*results))
-
 
 def cg_get_market_history(
     cg, 
