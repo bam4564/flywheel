@@ -12,6 +12,7 @@ addresses = Box({
         "frax": '0x853d955aCEf822Db058eb8505911ED77F175b99e'.lower(), 
         "fxs": '0x3432B6A60D23Ca0dFCa7761B7ab56459D9C964D0'.lower(), 
         'crvfrax': '0x3175df0976dfa876431c2e9ee6bc45b65d3473cc'.lower(), 
+        '3crv': '0x6c3f90f043a72fa612cbac8115ee7e52bde6e490'.lower(), 
     }, 
     "contract": {
         # Curve pools 

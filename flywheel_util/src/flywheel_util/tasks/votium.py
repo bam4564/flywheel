@@ -20,10 +20,9 @@ from flywheel_util.constants import (
     url_subgraphs, 
     url_infura, 
     snapshot_api_max_records_per_request, 
-    snapshot_api_max_skip,
 )
-from flywheel_util.tasks import df_to_sql
-from flywheel_util.utils import (
+from flywheel_util.tasks.general import df_to_sql
+from flywheel_util.utils.util import (
     ddf, 
     first_row, 
     cg_get_market_history, 
@@ -33,7 +32,7 @@ from flywheel_util.utils import (
     graphql_execute, 
     query_attrs,  
 )
-from flywheel_util.w3_utils import (
+from flywheel_util.utils.w3 import (
     verified_contract
 )
 
