@@ -7,8 +7,8 @@ from subgrounds import Subgrounds
 from sqlalchemy import create_engine
 
 from flywheel_util.constants import addresses, url_subgraphs
-from flywheel_util.tasks import df_to_sql
-from flywheel_util.curve_liquidity_tasks import (
+from flywheel_util.tasks.general import df_to_sql
+from flywheel_util.tasks.fraxbp import (
     query_curve_pool_snapshots, 
     query_curve_mpools_with_gauge, 
     query_curve_pool_vol_snapshots, 
@@ -31,9 +31,6 @@ cg = CoinGeckoAPI()
 
 @flow(cache_result_in_memory=False)
 def flow_fraxbp_metapool_data():
-
-    return 2
-
     """ Retrieves pool level data for all pools associated with the FraxBP 
     1) The FraxBP itself. 
     2) Metapools paired with the FraxBP. 
