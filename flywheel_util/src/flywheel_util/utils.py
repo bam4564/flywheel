@@ -23,9 +23,6 @@ from subgrounds.pagination import ShallowStrategy
 from IPython.display import HTML, display
 
 
-
-
-
 def ddf(df):
     display(HTML(df.to_html()))
 

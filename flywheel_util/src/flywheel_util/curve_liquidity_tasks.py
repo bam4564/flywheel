@@ -39,7 +39,7 @@ sg_curve_vol = sg.load_subgraph(url_subgraphs.convex.curve_vol_mainnet)
 sg_votium = sg.load_subgraph(url_subgraphs.votium.bribes) 
 
 
-@task(persist_result=True, cache_key_fn=lambda *args: 'pools9', cache_expiration=timedelta(days=1)) 
+@task(persist_result=True, cache_key_fn=lambda *args: 'pools10', cache_expiration=timedelta(days=1)) 
 def query_curve_mpools_with_gauge(): 
     # Get pool data for all fraxbp metapools + fraxbp (one row per combination of pool and coin) 
     # ----------------------------------------------------------------------
@@ -50,7 +50,7 @@ def query_curve_mpools_with_gauge():
         'lpToken', 
         'swap', # pool contract address 
         'coins',
-        'assetType', 
+        'assetType',
     ]
     queries = [
         sg_curve_pools.Query.pools(first=1000, where={
@@ -64,14 +64,12 @@ def query_curve_mpools_with_gauge():
         df.pools_assetType = df.pools_assetType.apply(lambda v: {0: "stable", 4: "non_stable"}[int(v)])
         df = df_cols_camel_to_snake(df) 
         df = df_cols_change_prefix(df, "pools", "pool") 
-        df = (
-            df.rename(columns={
-                'pool_token': 'pool_cvx_token',
-                'pool_swap': 'pool_address',
-                'pool_coins': 'pool_coin_address',
-                'pool_asset_type': 'pool_type', 
-            })
-        ) 
+        df = df.rename(columns={
+            'pool_token': 'pool_cvx_token',
+            'pool_swap': 'pool_address',
+            'pool_coins': 'pool_coin_address',
+            'pool_asset_type': 'pool_type', 
+        })
         dfs.append(df)
     df = pd.concat(dfs)
     df['pool_symbol'] = df['pool_name'].apply(lambda name: name.split(":")[-1].strip())
@@ -95,7 +93,7 @@ def query_curve_pool_snapshots():
             where={
                 "pool_": {
                     'coins_contains': [addresses.token.crvfrax], 
-                    'cumulativeVolumeUSD_gt': 1, # There are some test pools and pools that were incorrectly created that we filter out by only getting pools with more than 0 volume 
+                    'cumulativeVolumeUSD_gt': 10000, # There are some test pools and pools that were incorrectly created that we filter out by only getting pools with more than 0 volume 
                     'id_not_in': ADDRESS_POOLS_IGNORE
                 }
             }
@@ -156,6 +154,28 @@ def query_curve_pool_vol_snapshots():
     df['date'] = pd.to_datetime(pd.to_datetime(df.snap_timestamp, unit='s').dt.date) 
     df = df.rename(columns={'pool_id': 'pool_address'}).drop(columns="snap_timestamp")
     return df
+
+@task(persist_result=True, cache_key_fn=lambda *args: 'convex_yield1', cache_expiration=timedelta(days=1))
+def query_convex_yield(df_pools): 
+    attrs = [
+        'timestamp', 
+        'baseApr', 
+        'crvApr',
+        'cvxApr',
+        'extraRewardsApr',
+        'poolid.swap',
+    ]
+    pool_addrs = df_pools.loc[~df_pools.pool_gauge.isna()].pool_address.unique().tolist()
+    q = sg_curve_pools.Query.dailyPoolSnapshots(first=100000, where={"poolid_": {"swap_in": pool_addrs}})
+    df = query_attrs(sg, q, attrs) 
+    df = remove_prefix(df, "dailyPoolSnapshots_")
+    df = df_cols_camel_to_snake(df)
+    assert set(df.poolid_swap.unique()) == set(pool_addrs)
+    df['date'] = pd.to_datetime(pd.to_datetime(df.timestamp, unit='s').dt.date) 
+    df['total_apr'] = df.base_apr + df.crv_apr + df.cvx_apr + df.extra_rewards_apr
+    df = df.rename(columns={"poolid_swap": "pool_address"})
+    df = df.sort_values("date").reset_index(drop=True)  
+    return df 
 
 @task(persist_result=True, cache_key_fn=lambda *args: 'metapool_asset_eco_vol9', cache_expiration=timedelta(days=1)) 
 def query_metapool_paired_asset_global_volume(cg, token_addr_map): 
