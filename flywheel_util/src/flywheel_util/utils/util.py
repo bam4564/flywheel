@@ -62,17 +62,30 @@ def zip_dfs(dfs, col_names):
     return data
 
 def recursive_index_merge(dfs):
-    drop_right_suffix = '__drop_right_suffix'
     assert all(len(dfs[0]) == len(dfs[i]) for i in range(1, len(dfs)))
     dfs = deque(dfs) 
     df = dfs.popleft()
     while dfs: 
         df_right = dfs.popleft()
-        cols = list(set(df.columns).intersection(df_right.columns))
-        df = df.merge(df_right, how='left', left_index=True, right_index=True, suffixes=(None, drop_right_suffix))
-        drop_cols = [col for col in df.columns if col.endswith(drop_right_suffix)]
-        df = df.drop(columns=drop_cols)
+        # Drop shared cols from one of the dataframe, as they are the same in both dfs. 
+        drop_cols = list(set(df.columns).intersection(df_right.columns))
+        df_right = df_right.drop(columns=drop_cols)
+        df = df.merge(df_right, how='left', left_index=True, right_index=True)
     return df 
+
+# OLD IMPLEMENTATION 
+# def recursive_index_merge(dfs):
+#     drop_right_suffix = '__drop_right_suffix'
+#     assert all(len(dfs[0]) == len(dfs[i]) for i in range(1, len(dfs)))
+#     dfs = deque(dfs) 
+#     df = dfs.popleft()
+#     while dfs: 
+#         df_right = dfs.popleft()
+#         cols = list(set(df.columns).intersection(df_right.columns))
+#         df = df.merge(df_right, how='left', left_index=True, right_index=True, suffixes=(None, drop_right_suffix))
+#         drop_cols = [col for col in df.columns if col.endswith(drop_right_suffix)]
+#         df = df.drop(columns=drop_cols)
+#     return df 
 
 def query_attrs(sg, query, attrs):
     qattrs = []
