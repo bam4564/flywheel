@@ -1,5 +1,7 @@
 # Development Environment Setup 
 
+Repository for flywheel data analytics. 
+
 ## Pre-requisites 
 
 * Create a file `.env` in the root directory of the project. Within this file, define the following key value pairs. 
@@ -22,5 +24,8 @@
     
 ## Development 
 
-* To start up the dev environment, run `conda activate flywheel`. To close out the environment, run `conda deactivate`.
-* Run `jupyter-lab` to open a jupyter lab session in your web browser. Once this is open, you should be able to run any of the notebooks in `notebooks/` and it's subdirectories. Make sure that whenever you run a notebook, you're using the `flywheel` kernel which you can select in the upper right corner of the interface. 
+This repo houses a number of jupyter notebooks, all stored within the `notebooks` directory.
+
+* To start up the dev environment, run `conda activate flywheel`. 
+* To close out the environment, run `conda deactivate`.
+* Run `jupyter-lab` to open a jupyter lab session in your web browser. Once this is open, you should be able to run any of the notebooks. Make sure that whenever you run a notebook, you're using the `flywheel` kernel which you can select in the upper right corner of the interface. 
