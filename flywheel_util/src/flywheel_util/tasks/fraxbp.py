@@ -56,7 +56,7 @@ def query_curve_mpools_with_gauge():
         sg_curve_pools.Query.pools(first=1000, where={
             'coins_contains': [addresses.token.crvfrax], 'id_not_in': ADDRESS_POOLS_IGNORE
         }), 
-        sg_curve_pools.Query.pools(where={'swap': addresses.contract.fraxbp}),
+        sg_curve_pools.Query.pools(where={'swap': addresses.contract.curve.fraxbp}),
     ]
     dfs = []
     for q in queries: 
@@ -86,7 +86,7 @@ def query_curve_pool_snapshots():
     ]
     query_pool_snaps = [
         # FraxBP     
-        sg_curve_vol.Query.dailyPoolSnapshots(first=100000, where={'pool': addresses.contract.fraxbp}), 
+        sg_curve_vol.Query.dailyPoolSnapshots(first=100000, where={'pool': addresses.contract.curve.fraxbp}), 
         # FraxBP metapools 
         sg_curve_vol.Query.dailyPoolSnapshots(
             first=100000, 
@@ -132,7 +132,7 @@ def query_curve_pool_vol_snapshots():
         # FraxBP     
         sg_curve_vol.Query.swapVolumeSnapshots(
             first=100000, 
-            where={'pool': addresses.contract.fraxbp, "period": daily_period}
+            where={'pool': addresses.contract.curve.fraxbp, "period": daily_period}
         ), 
         # FraxBP metapools 
         sg_curve_vol.Query.swapVolumeSnapshots(
@@ -213,7 +213,7 @@ def compute_pool_dfs(df_mpools_gauge, df_pool_snaps):
         )
         .reset_index(drop=True)
     )
-    df_pools['pool_fraxbp_metapool'] = df_pools.pool_address.apply(lambda a: a != addresses.contract.fraxbp)
+    df_pools['pool_fraxbp_metapool'] = df_pools.pool_address.apply(lambda a: a != addresses.contract.curve.fraxbp)
     df_pools['pool_fraxbp'] = ~df_pools.pool_fraxbp_metapool
     # One row per combination of pool and coin within that pool 
     df_pool_coin = df_pools.merge(df_coins, how='left', on="pool_address").reset_index(drop=True)
@@ -226,7 +226,7 @@ def compute_metapool_snaps(df_pools, df_pool_snaps, df_reserves):
     # supply over crvFRAX in each metapool 
     df_mpool_supply_crvfrax = (
         df_reserves.loc[
-            (df_reserves.pool_address != addresses.contract.fraxbp) & 
+            (df_reserves.pool_address != addresses.contract.curve.fraxbp) & 
             (df_reserves.pool_coin_address == addresses.token.crvfrax)
         ]
         [['date', 'pool_address', 'reserves']]
@@ -234,7 +234,7 @@ def compute_metapool_snaps(df_pools, df_pool_snaps, df_reserves):
     )
     # total supply of crvFRAX over time 
     df_total_supply_crvfrax = (
-        df_pool_snaps.loc[df_pool_snaps.pool_address == addresses.contract.fraxbp]
+        df_pool_snaps.loc[df_pool_snaps.pool_address == addresses.contract.curve.fraxbp]
         [['date', 'snap_lp_supply']]
         .rename(columns={'snap_lp_supply': 'crvfrax_total'})
     ) 
