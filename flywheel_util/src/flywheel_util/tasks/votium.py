@@ -149,7 +149,7 @@ async def process_snapshot_votes(votes, verbose=True):
                 **v, 
                 'choice_index': int(index) - 1, # convert 1 to 0 based indexing for join with other data later 
                 'choice_weight': amount, 
-                'is_votium': v['voter'].lower() == addresses.contract.votium_vote_proxy
+                'is_votium': v['voter'].lower() == addresses.contract.votium.voter_proxy
             }
             del r['choice'] 
             vote_records.append(r)
