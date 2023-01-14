@@ -1,14 +1,17 @@
-pandas 
-numpy 
-subgrounds 
-palettable
-web3
-gql
-etherscan-python
-pycoingecko
-altair 
-missingno
-prefect 
-ipykernel
-python-dotenv
 -e ./flywheel_util
+altair 
+etherscan-python
+gql
+ipykernel
+jsonschema==3.* # See https://github.com/altair-viz/altair/issues/2496
+jupyterlab
+missingno
+numpy 
+palettable
+pandas>=1.5.0
+prefect 
+pycoingecko
+python-box
+python-dotenv
+subgrounds 
+web3
