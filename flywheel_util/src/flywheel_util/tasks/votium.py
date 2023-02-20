@@ -107,7 +107,7 @@ async def query_snapshot_proposals():
     df_proposals = df_proposals.drop(columns=['index']) 
     return df_proposals 
     
-@task(persist_result=True, cache_key_fn=lambda context, pid: f"snapshot_proposal_votes2_{pid}", cache_expiration=timedelta(days=1), tags=['network_request'])
+@task(persist_result=True, cache_key_fn=lambda context, pid: f"snapshot_proposal_votes22_{pid}", cache_expiration=timedelta(days=1), tags=['network_request'])
 async def blocking_query_snapshot_votes_for_proposal(pid: str): 
     return await graphql_execute(
         url_snapshot, 

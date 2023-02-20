@@ -19,6 +19,10 @@ addresses = Box({
         'cvxfrxethcrv': '0xC07e540DbFecCF7431EA2478Eb28A03918c1C30E'.lower(), # convex deposit token received when depositing frxethcrv (curve system)
         'stkcvxfrxethcrv-frax': '0x4659d5fF63A1E1EDD6D5DD9CC315e063c95947d0'.lower(), # frax's tokenized convex deposit for frxETHCRV         
     }, 
+    "abi": {
+        "frax": {
+        }
+    }, 
     "contract": {
         "curve": {
             # Contracts 

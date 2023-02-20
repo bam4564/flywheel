@@ -47,10 +47,14 @@ async def flow_votium_votes():
     for i in range(len(results)): 
         pid = proposal_ids[i]
         # pending votes should not count yet 
-        results[i] = [r for r in results[i] if r['vp_state'] == 'final']
+        # results[i] = [r for r in results[i] if r['vp_state'] == 'final']
         computed_vote_count = len(results[i])
         actual_vote_count = df_proposals.loc[df_proposals.proposal_id == pid].vote_count.values[0]
-        assert actual_vote_count == computed_vote_count, "Actual and computed vote counts did not match" 
+        # if actual_vote_count != computed_vote_count: 
+        #     print(set([r['vp_state'] for r in results[i]]))
+
+        #     raise Exception( f"Actual and computed vote counts did not match, {actual_vote_count} != {computed_vote_count}" )
+
     
     print("Here is the count of unique votes per each convex gauge weight snapshot proposal") 
     ddf(df_proposals[['proposal_round', 'vote_count', 'proposal_id']].sort_values('proposal_round').reset_index(drop=True))

@@ -29,7 +29,7 @@ pp = PrettyPrinter().pprint
 
 ADDRESS_POOLS_IGNORE = [
     '0xd3301b7caa76f932816a6fc7ef0b673238e217ad'.lower(), # This is the BENTFRAXBP-f that was deprecated 
-    '0xd9f907f7F84CbB0Af85C7829922fd692339147f9'.lower(), # honestly not sure what the fuck is going on here 
+    '0xd9f907f7F84CbB0Af85C7829922fd692339147f9'.lower(), # honestly not sure what is going on here 
 ]
 
 sg = Subgrounds()
